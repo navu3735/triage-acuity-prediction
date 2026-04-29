@@ -66,6 +66,19 @@ FALLBACK_NATURAL_COUNTS = {1: 18374, 2: 106649, 3: 172175, 4: 21806, 5: 842}
 FALLBACK_BALANCED_COUNTS = {1: 25000, 2: 106649, 3: 172175, 4: 25000, 5: 25000}
 
 
+def _tensorflow_is_installed() -> bool:
+    """Return True iff TensorFlow is importable (serverless images often omit it to save ~2 GB).
+
+    Checking without importing heavyweight submodules aggressively is enough for our branch.
+    """
+
+    try:
+        import tensorflow  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 app = FastAPI(
     title="Triage Acuity Predictor",
     description="Predicts Emergency Severity Index (ESI 1-5) from vital signs and symptoms.",
@@ -96,14 +109,25 @@ class Predictor:
     # -- model loading --------------------------------------------------- #
 
     def _init(self):
-        if DL_MODEL_PATH.exists() and DL_ARTIFACTS_PATH.exists():
-            self._init_dl()
-        elif LGBM_MODEL_PATH.exists():
+        dl_ready = (
+            DL_MODEL_PATH.exists()
+            and DL_ARTIFACTS_PATH.exists()
+            and _tensorflow_is_installed()
+        )
+        if dl_ready:
+            try:
+                self._init_dl()
+                return
+            except Exception:
+                pass
+        if LGBM_MODEL_PATH.exists():
             self._init_lgbm()
         else:
             raise RuntimeError(
-                "No trained model found. Train one first via "
-                "`python -m src.train_dl` or `python -m src.model`."
+                "No runnable model found. For production (e.g. Vercel without TensorFlow) "
+                "commit `models/triage_model_v1.pkl`. Locally, train via "
+                "`python -m src.model`, or DL via `pip install -r requirements-extra-dl.txt` "
+                "then `python -m src.train_dl`."
             )
 
     def _init_dl(self):

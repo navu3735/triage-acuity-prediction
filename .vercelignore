@@ -1,0 +1,18 @@
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.git/
+.idea/
+notebooks/
+tests/
+*.ipynb
+*.log
+
+# Huge training data never needed at runtime
+data/raw/
+
+# Deep-learning artefact weights — omit from serverless bundles (TensorFlow omitted from requirements).
+models/triage_model_dl.keras
+models/triage_dl_artifacts.pkl

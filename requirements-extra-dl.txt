@@ -1,0 +1,8 @@
+# Extra dependencies for LOCAL deep-learning training / inference (`src/train_dl.py`).
+# Vercel's serverless Python bundle has a strict size limit (~245 MB uncompressed);
+# omitting TensorFlow from the main ``requirements.txt`` keeps production deployable.
+#
+# Usage (local):
+#   pip install -r requirements.txt -r requirements-extra-dl.txt
+
+tensorflow>=2.15
