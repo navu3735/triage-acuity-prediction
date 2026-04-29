@@ -20,9 +20,8 @@ os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 import joblib
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from app.schemas import TriageRequest, TriageResponse
@@ -102,7 +101,7 @@ app = FastAPI(
     version="2.0.0",
 )
 
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+index_html_path = BASE_DIR / "templates" / "index.html"
 static_dir = BASE_DIR / "static"
 # On some hosts (notably Vercel serverless), the deployed filesystem is read-only.
 # We never want imports to fail just because `app/static/` wasn't committed.
@@ -305,7 +304,12 @@ def _startup():
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    # Prefer a plain FileResponse over Jinja templating so the homepage
+    # remains robust on serverless hosts (and we don't require template
+    # bytecode caching or write access).
+    if index_html_path.exists():
+        return FileResponse(index_html_path)
+    return HTMLResponse("<h1>UI template missing</h1><p>index.html not found.</p>", status_code=500)
 
 
 @app.get("/health")
