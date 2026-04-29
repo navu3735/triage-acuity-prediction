@@ -34,6 +34,7 @@ ROOT_DIR = BASE_DIR.parent
 DL_MODEL_PATH = ROOT_DIR / "models" / "triage_model_dl.keras"
 DL_ARTIFACTS_PATH = ROOT_DIR / "models" / "triage_dl_artifacts.pkl"
 LGBM_MODEL_PATH = ROOT_DIR / "models" / "triage_model_v1.pkl"
+SKLEARN_MODEL_PATH = ROOT_DIR / "models" / "triage_model_sklearn.pkl"
 
 
 ACUITY_LABELS = {
@@ -120,13 +121,15 @@ class Predictor:
                 return
             except Exception:
                 pass
-        if LGBM_MODEL_PATH.exists():
+        if SKLEARN_MODEL_PATH.exists():
+            self._init_sklearn()
+        elif LGBM_MODEL_PATH.exists():
             self._init_lgbm()
         else:
             raise RuntimeError(
                 "No runnable model found. For production (e.g. Vercel without TensorFlow) "
-                "commit `models/triage_model_v1.pkl`. Locally, train via "
-                "`python -m src.model`, or DL via `pip install -r requirements-extra-dl.txt` "
+                "commit `models/triage_model_sklearn.pkl`. Locally, train via "
+                "`python -m src.model_sklearn` or `python -m src.model`, or DL via `pip install -r requirements-extra-dl.txt` "
                 "then `python -m src.train_dl`."
             )
 
@@ -158,6 +161,17 @@ class Predictor:
         self.kind = "lightgbm"
         # The LightGBM model used sample_weight, not oversampling, so its
         # output is already on the natural distribution — calibration is a no-op.
+        self.calibration = np.ones(len(self.classes_), dtype="float32")
+
+    def _init_sklearn(self):
+        bundle = joblib.load(SKLEARN_MODEL_PATH)
+        self.imputer = bundle["imputer"]
+        self.scaler = bundle["scaler"]
+        self.vectorizer = bundle["vectorizer"]
+        self.model = bundle["model"]
+        self.classes_ = bundle["classes_"]
+        self.metrics = bundle.get("metrics", {})
+        self.kind = "sklearn"
         self.calibration = np.ones(len(self.classes_), dtype="float32")
 
     def _init_calibration(self, natural_counts: Dict[int, int], balanced_counts: Dict[int, int]):

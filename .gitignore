@@ -11,6 +11,7 @@ data/metadata/
 # Allow committed inference bundles for deployment (explicit paths)
 !models/triage_dl_artifacts.pkl
 !models/triage_model_v1.pkl
+!models/triage_model_sklearn.pkl
 
 .venv/
 venv/
