@@ -16,3 +16,6 @@ data/raw/
 # Deep-learning artefact weights — omit from serverless bundles (TensorFlow omitted from requirements).
 models/triage_model_dl.keras
 models/triage_dl_artifacts.pkl
+
+# LightGBM bundle requires libgomp.so.1 which is not available on Vercel.
+models/triage_model_v1.pkl

@@ -80,6 +80,22 @@ def _tensorflow_is_installed() -> bool:
     return True
 
 
+def _lightgbm_is_runnable() -> bool:
+    """Return True iff LightGBM is importable and its native deps are present.
+
+    On Vercel this often fails with: `libgomp.so.1: cannot open shared object file`.
+    We keep LightGBM as an *opt-in* fallback for environments that support it.
+    """
+
+    if os.getenv("ENABLE_LIGHTGBM", "").strip() not in {"1", "true", "TRUE", "yes", "YES"}:
+        return False
+    try:
+        import lightgbm  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
 app = FastAPI(
     title="Triage Acuity Predictor",
     description="Predicts Emergency Severity Index (ESI 1-5) from vital signs and symptoms.",
@@ -123,7 +139,7 @@ class Predictor:
                 pass
         if SKLEARN_MODEL_PATH.exists():
             self._init_sklearn()
-        elif LGBM_MODEL_PATH.exists():
+        elif LGBM_MODEL_PATH.exists() and _lightgbm_is_runnable():
             self._init_lgbm()
         else:
             raise RuntimeError(
@@ -297,7 +313,19 @@ def health() -> Dict[str, object]:
             "classes": p.classes_,
         }
     except Exception as exc:  # noqa: BLE001
-        return {"status": "degraded", "detail": str(exc)}
+        return {
+            "status": "degraded",
+            "detail": str(exc),
+            "files": {
+                "sklearn_model": SKLEARN_MODEL_PATH.exists(),
+                "lgbm_model": LGBM_MODEL_PATH.exists(),
+                "dl_model": DL_MODEL_PATH.exists(),
+                "dl_artifacts": DL_ARTIFACTS_PATH.exists(),
+            },
+            "env": {
+                "enable_lightgbm": os.getenv("ENABLE_LIGHTGBM", ""),
+            },
+        }
 
 
 @app.post("/predict", response_model=TriageResponse)
