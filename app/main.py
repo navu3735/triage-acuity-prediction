@@ -344,6 +344,10 @@ def health() -> Dict[str, object]:
             "model_kind": p.kind,
             "metrics": p.metrics,
             "classes": p.classes_,
+            "vercel": {
+                "git_commit_sha": os.getenv("VERCEL_GIT_COMMIT_SHA", ""),
+                "deployment_id": os.getenv("VERCEL_DEPLOYMENT_ID", ""),
+            },
         }
     except Exception as exc:  # noqa: BLE001
         return {
