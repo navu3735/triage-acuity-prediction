@@ -104,7 +104,13 @@ app = FastAPI(
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 static_dir = BASE_DIR / "static"
-static_dir.mkdir(exist_ok=True)
+# On some hosts (notably Vercel serverless), the deployed filesystem is read-only.
+# We never want imports to fail just because `app/static/` wasn't committed.
+try:
+    static_dir.mkdir(exist_ok=True)
+except OSError:
+    static_dir = Path(os.getenv("TMPDIR", "/tmp")) / "triage-static"
+    static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
