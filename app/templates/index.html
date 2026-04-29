@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Triage Acuity Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Triage<span class="brand-name-soft">Lab</span></span>
+    </a>
+    <div class="top-meta">
+      <span class="status-pill" id="model-status">
+        <span class="dot"></span><span id="model-status-text">loading…</span>
+      </span>
+      <button type="button" id="clear-btn" class="ghost-btn">New Patient</button>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="intro">
+    <h1>Patient triage assessment</h1>
+    <p>Enter the patient's vitals and chief complaint. The model returns the predicted Emergency Severity Index level (1 = resuscitation, 5 = non-urgent) along with disposition guidance.</p>
+  </section>
+
+  <form id="triage-form" autocomplete="off">
+
+    <!-- ============ STEP 1 — VITALS ============ -->
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">01</span>
+        <div>
+          <h2>Vital signs</h2>
+          <p class="step-sub">Normal adult ranges shown below each field. Indicators turn amber/red as you type out-of-range values.</p>
+        </div>
+      </div>
+
+      <div class="monitor-grid">
+        <div class="monitor-card" data-vital="temperature">
+          <div class="m-top">
+            <span class="m-label">Temp</span>
+            <span class="m-unit">°F</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="0.1" name="temperature" placeholder="—" inputmode="decimal" />
+          <div class="m-range">97.0 – 99.5</div>
+        </div>
+
+        <div class="monitor-card" data-vital="heartrate">
+          <div class="m-top">
+            <span class="m-label">HR</span>
+            <span class="m-unit">bpm</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="1" name="heartrate" placeholder="—" inputmode="numeric" />
+          <div class="m-range">60 – 100</div>
+        </div>
+
+        <div class="monitor-card" data-vital="resprate">
+          <div class="m-top">
+            <span class="m-label">RR</span>
+            <span class="m-unit">/min</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="1" name="resprate" placeholder="—" inputmode="numeric" />
+          <div class="m-range">12 – 20</div>
+        </div>
+
+        <div class="monitor-card" data-vital="o2sat">
+          <div class="m-top">
+            <span class="m-label">SpO₂</span>
+            <span class="m-unit">%</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="1" name="o2sat" placeholder="—" inputmode="numeric" />
+          <div class="m-range">95 – 100</div>
+        </div>
+
+        <div class="monitor-card" data-vital="sbp">
+          <div class="m-top">
+            <span class="m-label">SBP</span>
+            <span class="m-unit">mmHg</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="1" name="sbp" placeholder="—" inputmode="numeric" />
+          <div class="m-range">90 – 140</div>
+        </div>
+
+        <div class="monitor-card" data-vital="dbp">
+          <div class="m-top">
+            <span class="m-label">DBP</span>
+            <span class="m-unit">mmHg</span>
+            <span class="m-flag"></span>
+          </div>
+          <input type="number" step="1" name="dbp" placeholder="—" inputmode="numeric" />
+          <div class="m-range">60 – 90</div>
+        </div>
+      </div>
+
+      <div class="derived-row" id="derived-row" hidden>
+        <span class="d-item"><span class="d-label">MAP</span><span class="d-val" id="d-map">—</span><span class="d-unit">mmHg</span></span>
+        <span class="d-divider"></span>
+        <span class="d-item"><span class="d-label">Pulse pressure</span><span class="d-val" id="d-pp">—</span><span class="d-unit">mmHg</span></span>
+        <span class="d-divider"></span>
+        <span class="d-item"><span class="d-label">Shock index</span><span class="d-val" id="d-si">—</span></span>
+      </div>
+    </section>
+
+    <!-- ============ STEP 2 — PAIN ============ -->
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">02</span>
+        <div>
+          <h2>Pain assessment</h2>
+          <p class="step-sub">Numeric scale 0–10. Tap the patient's reported score.</p>
+        </div>
+      </div>
+
+      <div class="pain-scale" id="pain-scale" role="radiogroup" aria-label="Pain score"></div>
+      <input type="hidden" name="pain" id="pain-value" />
+      <div class="pain-anchors">
+        <span>None</span><span>Mild</span><span>Moderate</span><span>Severe</span><span>Worst</span>
+      </div>
+    </section>
+
+    <!-- ============ STEP 3 — CHIEF COMPLAINT ============ -->
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">03</span>
+        <div>
+          <h2>Chief complaint</h2>
+          <p class="step-sub">Describe the presenting symptoms in the patient's own words, or pick from common chief complaints.</p>
+        </div>
+      </div>
+
+      <textarea name="chiefcomplaint" id="cc" rows="3" placeholder="e.g. crushing chest pain radiating to left arm, shortness of breath, diaphoresis"></textarea>
+      <div class="quickpicks" id="quickpicks"></div>
+    </section>
+
+    <!-- ============ ACTION ============ -->
+    <div class="form-actions">
+      <span class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to predict · <kbd>Esc</kbd> for new patient</span>
+      <button type="submit" class="primary-btn" id="submit-btn">
+        <span class="btn-label">Predict acuity</span>
+        <span class="btn-arrow" aria-hidden="true">→</span>
+      </button>
+    </div>
+  </form>
+
+  <!-- ============ RESULT ============ -->
+  <section class="result-wrap" id="result-wrap" hidden>
+    <div class="result-card" id="result-card">
+      <div class="result-stripe" id="result-stripe"></div>
+
+      <div class="result-grid">
+        <div class="result-left">
+          <div class="esi-display">
+            <div class="esi-num" id="esi-num">–</div>
+            <div class="esi-tag">
+              <div class="esi-tag-row">
+                <span class="esi-tag-pre">ESI Level</span>
+                <span class="esi-tag-name" id="result-label">—</span>
+              </div>
+              <div class="esi-target" id="result-target">—</div>
+            </div>
+          </div>
+
+          <div class="result-conf">
+            <span class="result-conf-label">Model confidence</span>
+            <span class="result-conf-val" id="result-confidence">—</span>
+          </div>
+        </div>
+
+        <div class="result-right">
+          <div class="result-section">
+            <div class="section-title">Disposition guidance</div>
+            <p id="result-description">—</p>
+          </div>
+
+          <div class="result-section">
+            <div class="section-title">Probability across all levels</div>
+            <div id="proba-bars"></div>
+          </div>
+
+          <div class="result-section" id="features-block" hidden>
+            <div class="section-title">Recognized symptoms</div>
+            <div id="feature-pills"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-disclaimer">
+        Decision-support only. Final triage decisions remain with the clinician.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>MIMIC-IV-ED · BiLSTM + CNN · prior-calibrated</span>
+    <span class="footer-stats">accuracy <span id="acc-stat">—</span> · top-2 <span id="top2-stat">—</span></span>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
