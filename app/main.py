@@ -362,17 +362,25 @@ def predict(payload: TriageRequest) -> TriageResponse:
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
-    probas = p.predict_proba(payload)
-    pred_idx = int(np.argmax(probas))
-    pred_class = int(p.classes_[pred_idx])
-    label, description = ACUITY_LABELS.get(pred_class, ("Unknown", ""))
-    proba_map = {str(int(c)): float(round(prob, 4)) for c, prob in zip(p.classes_, probas)}
+    try:
+        probas = p.predict_proba(payload)
+        pred_idx = int(np.argmax(probas))
+        pred_class = int(p.classes_[pred_idx])
+        label, description = ACUITY_LABELS.get(pred_class, ("Unknown", ""))
+        proba_map = {str(int(c)): float(round(prob, 4)) for c, prob in zip(p.classes_, probas)}
 
-    return TriageResponse(
-        acuity=pred_class,
-        label=label,
-        description=description,
-        confidence=float(round(probas[pred_idx], 4)),
-        probabilities=proba_map,
-        top_features=p.top_features(payload),
-    )
+        return TriageResponse(
+            acuity=pred_class,
+            label=label,
+            description=description,
+            confidence=float(round(probas[pred_idx], 4)),
+            probabilities=proba_map,
+            top_features=p.top_features(payload),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # Surface the actual inference error to the client so deployments can be debugged.
+        # (Vercel's default 500 page hides the exception message.)
+        print(f"[predict] failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
