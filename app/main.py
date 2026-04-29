@@ -174,6 +174,7 @@ class Predictor:
     def _init_lgbm(self):
         bundle = joblib.load(LGBM_MODEL_PATH)
         self.imputer = bundle["imputer"]
+        self._patch_sklearn_imputer(self.imputer)
         self.scaler = bundle["scaler"]
         self.vectorizer = bundle["vectorizer"]
         self.model = bundle["model"]
@@ -187,6 +188,7 @@ class Predictor:
     def _init_sklearn(self):
         bundle = joblib.load(SKLEARN_MODEL_PATH)
         self.imputer = bundle["imputer"]
+        self._patch_sklearn_imputer(self.imputer)
         self.scaler = bundle["scaler"]
         self.vectorizer = bundle["vectorizer"]
         self.model = bundle["model"]
@@ -194,6 +196,19 @@ class Predictor:
         self.metrics = bundle.get("metrics", {})
         self.kind = "sklearn"
         self.calibration = np.ones(len(self.classes_), dtype="float32")
+
+    @staticmethod
+    def _patch_sklearn_imputer(imputer) -> None:
+        """Back-compat shim for old pickled sklearn imputers.
+
+        Some scikit-learn versions expect internal attributes to exist during
+        `transform()`. When loading an older pickled `SimpleImputer`, those
+        attributes may be absent (e.g. `_fill_dtype`), leading to runtime 500s
+        in production even though the model bundle loads.
+        """
+
+        if hasattr(imputer, "_fit_dtype") and not hasattr(imputer, "_fill_dtype"):
+            setattr(imputer, "_fill_dtype", getattr(imputer, "_fit_dtype"))
 
     def _init_calibration(self, natural_counts: Dict[int, int], balanced_counts: Dict[int, int]):
         """Build a per-class adjustment vector that converts probabilities
