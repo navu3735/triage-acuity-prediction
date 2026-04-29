@@ -304,12 +304,20 @@ def _startup():
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
-    # Prefer a plain FileResponse over Jinja templating so the homepage
-    # remains robust on serverless hosts (and we don't require template
-    # bytecode caching or write access).
-    if index_html_path.exists():
-        return FileResponse(index_html_path)
-    return HTMLResponse("<h1>UI template missing</h1><p>index.html not found.</p>", status_code=500)
+    # Minimal, robust homepage. If static + template files are present we serve the full UI;
+    # otherwise we still return a working page that points to the API.
+    try:
+        if index_html_path.exists():
+            return FileResponse(index_html_path)
+    except Exception:
+        pass
+
+    return HTMLResponse(
+        "<h1>Triage Acuity Predictor</h1>"
+        "<p>UI unavailable, but API is running.</p>"
+        "<ul><li><a href=\"/health\">/health</a></li></ul>",
+        status_code=200,
+    )
 
 
 @app.get("/health")
