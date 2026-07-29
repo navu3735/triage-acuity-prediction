@@ -1,91 +1,72 @@
-# Triage Acuity Predictor
+# Smartflow — AI Healthcare Platform
 
-End-to-end web app that predicts the **Emergency Severity Index (ESI 1–5)** from
-a patient's vital signs and free-text chief complaint. Trained on the
-[MIMIC-IV-ED](https://physionet.org/content/mimic-iv-ed/) `triage.csv` table.
+Full-stack AI healthcare platform for emergency intake, operational ED metrics,
+ESI acuity prediction (TensorFlow / scikit-learn), and LangChain RAG summaries.
 
 ## Stack
 
-- **Model:** LightGBM multi-class classifier on combined numeric vitals
-  (temperature, heart rate, respiratory rate, SpO₂, BP, pain, derived shock
-  index / pulse pressure / MAP) and TF-IDF features over the chief complaint.
-- **Backend:** FastAPI + Uvicorn.
-- **Frontend:** Server-rendered Jinja template with a vanilla JS form that
-  POSTs to `/predict`.
+| Layer | Tech |
+|-------|------|
+| Frontend | React + Next.js |
+| Backend | FastAPI REST APIs |
+| Database | PostgreSQL (Docker) / SQLite fallback |
+| ML | TensorFlow (optional) + scikit-learn ESI model |
+| LLM | LangChain workflows + RAG over ED protocols |
+| Deploy | Docker Compose microservices + GitHub Actions CI/CD |
 
-## Project Layout
+## Quick start (local demo)
 
-```
-.
-├── app/
-│   ├── main.py            FastAPI app (GET /, POST /predict, GET /health)
-│   ├── schemas.py         Pydantic request/response schemas
-│   ├── static/            CSS + JS for the UI
-│   └── templates/         index.html
-├── data/raw/              triage.csv, vitalsign.csv (raw MIMIC-IV-ED)
-├── models/                triage_model_v1.pkl (saved bundle)
-├── src/
-│   ├── data_loader.py
-│   ├── preprocessing.py   shared feature engineering for train + inference
-│   └── model.py           training entry point
-├── requirements.txt
-└── README.md
-```
-
-## Setup
+### 1. Backend API
 
 ```powershell
 pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## Train
+API docs: http://127.0.0.1:8000/docs  
+Legacy triage UI: http://127.0.0.1:8000/
+
+### 2. Next.js frontend
 
 ```powershell
-python -m src.model
+cd frontend
+npm install
+npm run dev
 ```
 
-Saves the bundle to `models/triage_model_v1.pkl`. Use `--sample 20000` for a
-fast smoke test.
+Open http://localhost:3000
 
-## Run the Web App
+### Docker (Postgres + API + Web)
 
 ```powershell
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+docker compose up --build
 ```
 
-Then open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
+- Web: http://localhost:3000  
+- API: http://localhost:8000  
+- Postgres: `localhost:5432` (`smartflow` / `smartflow`)
 
-## API
+Optional: set `OPENAI_API_KEY` for live LLM generation. Without it, LangChain
+still runs retrieval + a local synthesizer so demos work offline.
 
-`POST /predict` with JSON body:
+## REST surface
 
-```json
-{
-  "temperature": 98.7,
-  "heartrate": 132,
-  "resprate": 24,
-  "o2sat": 91,
-  "sbp": 88,
-  "dbp": 54,
-  "pain": "9",
-  "chiefcomplaint": "crushing chest pain radiating to left arm"
-}
+- `POST /predict` — ESI acuity from vitals + complaint (TensorFlow/sklearn)
+- `POST /api/intake` — emergency intake persistence + prediction
+- `GET /api/intake` — list intakes
+- `GET /api/ops/dashboard` — operational healthcare dashboard data
+- `GET /api/ops/metrics` — throughput / census metrics
+- `POST /api/ai/summarize` — LangChain RAG patient summary
+- `POST /api/ai/recommend` — workflow recommendations
+
+## Project layout
+
 ```
-
-Response:
-
-```json
-{
-  "acuity": 1,
-  "label": "Resuscitation",
-  "description": "Immediately life-threatening — needs lifesaving intervention now.",
-  "confidence": 0.78,
-  "probabilities": { "1": 0.78, "2": 0.16, "3": 0.05, "4": 0.01, "5": 0.0 },
-  "top_features": ["chest pain", "shortness", "left arm"]
-}
+.
+├── frontend/                 Next.js + React UI
+├── app/                      FastAPI + RAG + intake/ops APIs
+├── src/                      ML training / preprocessing
+├── models/                   Trained ESI models
+├── docker-compose.yml
+└── .github/workflows/ci.yml
 ```
-
-## Disclaimer
-
-This is a research/educational project. The model is **not** a clinical device
-and must not be used to make real triage decisions.

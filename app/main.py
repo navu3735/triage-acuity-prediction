@@ -95,11 +95,39 @@ def _lightgbm_is_runnable() -> bool:
     return True
 
 
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.db import SessionLocal, init_db
+from app.routers import ai as ai_router
+from app.routers import intake as intake_router
+from app.routers import ops as ops_router
+from app.seed import seed_if_empty
+
 app = FastAPI(
-    title="Triage Acuity Predictor",
-    description="Predicts Emergency Severity Index (ESI 1-5) from vital signs and symptoms.",
-    version="2.0.0",
+    title="Smartflow AI Healthcare Platform",
+    description=(
+        "Full-stack emergency intake, operational healthcare APIs, "
+        "TensorFlow/sklearn ESI prediction, and LangChain RAG summaries."
+    ),
+    version="3.0.0",
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "*",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(intake_router.router)
+app.include_router(ops_router.router)
+app.include_router(ai_router.router)
 
 index_html_path = BASE_DIR / "templates" / "index.html"
 static_dir = BASE_DIR / "static"
@@ -310,6 +338,17 @@ def _get_predictor() -> Predictor:
 
 @app.on_event("startup")
 def _startup():
+    try:
+        init_db()
+        db = SessionLocal()
+        try:
+            seed_if_empty(db)
+        finally:
+            db.close()
+        print("[startup] database ready")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] database init failed: {exc}")
+
     try:
         p = _get_predictor()
         print(f"[startup] loaded {p.kind} model • metrics={p.metrics}")
