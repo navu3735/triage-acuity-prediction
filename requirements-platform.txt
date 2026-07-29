@@ -1,0 +1,8 @@
+# Full local / Docker platform stack (not installed on Vercel serverless).
+-r requirements.txt
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+langchain-core>=0.3
+langchain-community>=0.3
+langchain-openai>=0.2
+faiss-cpu>=1.8

@@ -14,12 +14,20 @@ ESI acuity prediction (TensorFlow / scikit-learn), and LangChain RAG summaries.
 | LLM | LangChain workflows + RAG over ED protocols |
 | Deploy | Docker Compose microservices + GitHub Actions CI/CD |
 
-## Quick start (local demo)
+## Setup
+
+```powershell
+# Vercel / triage-only
+pip install -r requirements.txt
+
+# Full Smartflow platform (intake, ops, LangChain RAG)
+pip install -r requirements-platform.txt
+```
 
 ### 1. Backend API
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements-platform.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 

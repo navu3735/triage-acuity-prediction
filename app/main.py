@@ -97,11 +97,11 @@ def _lightgbm_is_runnable() -> bool:
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db import SessionLocal, init_db
-from app.routers import ai as ai_router
-from app.routers import intake as intake_router
-from app.routers import ops as ops_router
-from app.seed import seed_if_empty
+# Vercel serverless stays lean: triage UI + /predict + /health only.
+# Full Smartflow platform APIs (Postgres/SQLite intake, ops, LangChain RAG)
+# load locally / in Docker where requirements-platform.txt is installed.
+_IS_VERCEL = bool(os.getenv("VERCEL"))
+_PLATFORM_ENABLED = False
 
 app = FastAPI(
     title="Smartflow AI Healthcare Platform",
@@ -125,9 +125,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(intake_router.router)
-app.include_router(ops_router.router)
-app.include_router(ai_router.router)
+if not _IS_VERCEL:
+    try:
+        from app.db import SessionLocal, init_db
+        from app.routers import ai as ai_router
+        from app.routers import intake as intake_router
+        from app.routers import ops as ops_router
+        from app.seed import seed_if_empty
+
+        app.include_router(intake_router.router)
+        app.include_router(ops_router.router)
+        app.include_router(ai_router.router)
+        _PLATFORM_ENABLED = True
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] platform APIs unavailable: {exc}")
+        SessionLocal = None  # type: ignore[assignment]
+        init_db = None  # type: ignore[assignment]
+        seed_if_empty = None  # type: ignore[assignment]
+else:
+    SessionLocal = None  # type: ignore[assignment]
+    init_db = None  # type: ignore[assignment]
+    seed_if_empty = None  # type: ignore[assignment]
 
 index_html_path = BASE_DIR / "templates" / "index.html"
 static_dir = BASE_DIR / "static"
@@ -338,16 +356,17 @@ def _get_predictor() -> Predictor:
 
 @app.on_event("startup")
 def _startup():
-    try:
-        init_db()
-        db = SessionLocal()
+    if _PLATFORM_ENABLED and init_db is not None and SessionLocal is not None:
         try:
-            seed_if_empty(db)
-        finally:
-            db.close()
-        print("[startup] database ready")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[startup] database init failed: {exc}")
+            init_db()
+            db = SessionLocal()
+            try:
+                seed_if_empty(db)
+            finally:
+                db.close()
+            print("[startup] database ready")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[startup] database init failed: {exc}")
 
     try:
         p = _get_predictor()

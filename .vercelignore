@@ -13,6 +13,12 @@ tests/
 # Huge training data never needed at runtime
 data/raw/
 
+# Next.js app is not part of the Python serverless deploy
+frontend/
+docker-compose.yml
+.github/
+Dockerfile
+
 # Deep-learning artefact weights — omit from serverless bundles (TensorFlow omitted from requirements).
 models/triage_model_dl.keras
 models/triage_dl_artifacts.pkl
