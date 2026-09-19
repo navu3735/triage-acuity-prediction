@@ -368,13 +368,6 @@ def _startup():
         except Exception as exc:  # noqa: BLE001
             print(f"[startup] database init failed: {exc}")
 
-    try:
-        p = _get_predictor()
-        print(f"[startup] loaded {p.kind} model • metrics={p.metrics}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[startup] model not yet available: {exc}")
-
-
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     # Minimal, robust homepage. If static + template files are present we serve the full UI;
